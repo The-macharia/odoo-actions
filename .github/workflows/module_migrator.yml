@@ -1,0 +1,67 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Odoo-Module-Migrator
+permissions:
+  contents: read
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  workflow_dispatch:
+    inputs:
+      source_version:
+        description: "Init Version Name"
+        default: "18.0"
+        required: true
+
+      target_version:
+        description: "Target Version Name"
+        default: "18.0"
+        required: true
+
+      use_repo:
+        description: "Pass a repository to upgrade in format {owner}/{repo_name}"
+        default: ""
+
+      branch:
+        description: "Repository Branch"
+        default: "main"
+
+      github_token:
+        description: "Github Token (Required for private repositories)"
+        default: ""
+
+env:
+  TARGET_DIRECTORY: "target"
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  file-upload-mode-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: boasihq/interactive-inputs@v2
+
+  repository-mode-build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    if: github.event.inputs.use_repo != ''
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{github.event.inputs.use_repo}}
+          ref: ${{github.event.inputs.branch}}
+          path: $TARGET_DIRECTORY
+          token: ${{github.event.inputs.github_token}}
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+      # Runs a set of commands using the runners shell
+      - name: Run a multi-line script
+        run: |
+          echo Add other actions to build,
+          echo test, and deploy your project.
