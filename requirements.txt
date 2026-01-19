@@ -1,0 +1,2 @@
+click-odoo-contrib==1.21
+openpyxl
