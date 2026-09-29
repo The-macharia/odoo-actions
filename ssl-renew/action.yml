@@ -14,17 +14,13 @@ runs:
         set -euo pipefail
         le=$(docker service inspect "$SVC" --format '{{range .Spec.TaskTemplate.ContainerSpec.Mounts}}{{if eq .Target "/etc/letsencrypt"}}{{.Source}}{{end}}{{end}}')
         [ -n "$le" ] || { echo "$SVC mounts no /etc/letsencrypt, nothing to renew"; exit 0; }
-        # hosts keep letsencrypt either at / or under /home/odoo/ssl; work dir sits beside it
         lib="${le%/etc/letsencrypt}/var/lib/letsencrypt"
 
         if docker service inspect "$SVC" --format '{{range .Endpoint.Ports}}{{.PublishedPort}} {{end}}' | grep -qw 80; then
-            # certbot's standalone challenge needs :80
             docker service scale "$SVC=0" --detach=false
             trap 'docker service scale "$SVC=1" --detach=false' EXIT
         fi
 
         docker run --rm -v "$le:/etc/letsencrypt" -v "$lib:/var/lib/letsencrypt" -p 80:80 certbot/certbot renew
 
-        # nginx loads certificates only at startup or reload; without this a renewed
-        # cert is served only after the next stack redeploy
         docker ps -q -f "label=com.docker.swarm.service.name=$SVC" | xargs -r docker kill -s HUP

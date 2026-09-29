@@ -16,18 +16,23 @@ on:
 permissions:
   contents: read
 
-# shared with module-upgrade.yml: never two writers on one database
 concurrency:
   group: odoo-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.IMAGE_REPO && 'ubuntu-latest' || vars.RUNNER }}
     timeout-minutes: 30
+    outputs:
+      image: ${{ steps.build.outputs.image }}
     steps:
-      - uses: The-macharia/odoo-actions/build@v1
+      - id: build
+        uses: The-macharia/odoo-actions/build@v1
         with:
+          image-repo: ${{ vars.IMAGE_REPO }}
+          base-image: ${{ vars.BASE_IMAGE }}
+          builder: ${{ vars.BUILDER }}
           docker-user: ${{ secrets.DOCKER_USER }}
           docker-pat: ${{ secrets.DOCKER_PAT }}
 
@@ -40,13 +45,13 @@ jobs:
       - uses: The-macharia/odoo-actions/deploy@v1
         with:
           stack: ${{ vars.STACK }}
+          image: ${{ needs.build.outputs.image }}
           network: ${{ vars.NETWORK }}
           compose-file: ${{ vars.COMPOSE_FILE }}
           project-dir: ${{ vars.PROJECT_DIR }}
           docker-user: ${{ secrets.DOCKER_USER }}
           docker-pat: ${{ secrets.DOCKER_PAT }}
 
-  # own job, so a failed update is re-run alone ("Re-run failed jobs") without redeploying
   upgrade:
     needs: deploy
     runs-on: ${{ vars.RUNNER }}

@@ -6,7 +6,7 @@ repo/environment variables.
 
 | Action | Used by |
 |---|---|
-| `build` | deploy.yml `build` job (GitHub-hosted) |
+| `build` | deploy.yml `build` job |
 | `deploy` | deploy.yml `deploy` job |
 | `backup` | backup.yml |
 | `module-upgrade` | deploy.yml `upgrade` job (changed modules), module-upgrade.yml (forced `-u`) |
@@ -15,9 +15,29 @@ repo/environment variables.
 `bin/odoo-run` clones image, network and mounts from the live `<stack>_odoo` service, so no
 workflow names a network or volume.
 
+## Where the image is built
+
+| | Client with Docker Hub | Client without a registry |
+|---|---|---|
+| `IMAGE_REPO` | `acme/odoo` | unset |
+| Build runs on | GitHub-hosted runner | the client's server (`RUNNER`) |
+| Image | pushed as `acme/odoo:<sha>` and `:<branch>` | kept locally as `localhost/<repo>:<sha>` |
+| `DOCKER_USER` / `DOCKER_PAT` | client's account (push + pull) | only if the base image is private on Docker Hub |
+| Rollback | re-run an old deploy (pulls the old sha) | re-run an old deploy (rebuilds the old sha) |
+
+The `localhost/` prefix keeps swarm from ever pulling a same-named public image from Docker Hub.
+Server builds use the production host's CPU and memory while they run.
+
 ## Per-client setup
 
-Repo variable: `RUNNER` (self-hosted runner label).
+Repo variables:
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `RUNNER` | self-hosted runner label | — |
+| `IMAGE_REPO` | registry repo to push to; unset builds on the server | unset |
+| `BASE_IMAGE` | image passed as `BASE_IMAGE` | `muritechnologies/odoo-enterprise:18.0` |
+| `BUILDER` | Docker Build Cloud endpoint; unset uses buildx with the GitHub Actions cache | unset |
 
 Environments `production` (branch `main` only) and `stage`, each with:
 
@@ -33,7 +53,7 @@ Environments `production` (branch `main` only) and `stage`, each with:
 Do not add required reviewers to `production`: scheduled backups and maintenance run in it and
 would wait for approval.
 
-Secrets: `DOCKER_USER`, `DOCKER_PAT`.
+Secrets: `DOCKER_USER`, `DOCKER_PAT` (see the table above for when they are needed).
 
 The compose file joins the external network the deploy action creates:
 

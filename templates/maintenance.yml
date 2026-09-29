@@ -12,8 +12,10 @@ jobs:
     runs-on: ${{ vars.RUNNER }}
     timeout-minutes: 15
     steps:
-      # without -a these remove only anonymous volumes and dangling images; named data volumes are never touched
-      - run: docker volume prune -f && docker image prune -f
+      - run: |
+          docker volume prune -f
+          docker image prune -af --filter until=168h
+          docker builder prune -f --filter until=168h
 
   ssl-renew:
     runs-on: ${{ vars.RUNNER }}

@@ -1,42 +1,68 @@
 name: Build Odoo image
-description: Build the calling repo's image on the shared cloud builder, tagged with branch and commit.
+description: Build the calling repo's image and push it to a registry, or keep it in the local image store of a self-hosted server.
 inputs:
+  image-repo:
+    description: Registry repo to push to, e.g. acme/odoo. Empty builds into the runner's local image store as localhost/<repo>.
   docker-user:
-    description: Docker Hub user
-    required: true
+    description: Docker Hub user, to push and/or pull a private base image. Empty skips login.
   docker-pat:
     description: Docker Hub token
-    required: true
-  namespace:
-    description: Docker Hub namespace of the image
-    default: muritechnologies
   base-image:
-    description: Base image passed as BASE_IMAGE
-    default: muritechnologies/odoo-enterprise:18.0
+    description: Base image passed as BASE_IMAGE (default muritechnologies/odoo-enterprise:18.0)
+  builder:
+    description: Docker Build Cloud endpoint for registry builds. Empty uses a buildx builder on the runner with the GitHub Actions cache.
+outputs:
+  image:
+    description: Image reference deploy must run, tagged with the commit sha
+    value: ${{ steps.ref.outputs.image }}
 runs:
   using: composite
   steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+    - id: ref
+      shell: bash
+      env:
+        REPO: ${{ inputs.image-repo || format('localhost/{0}', github.event.repository.name) }}
+      run: echo "image=$REPO:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.docker-user != ''
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
       with:
         username: ${{ inputs.docker-user }}
         password: ${{ inputs.docker-pat }}
 
-    - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+    - if: inputs.image-repo != ''
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       with:
-        driver: cloud
-        endpoint: muritechnologies/odoo-builder
+        driver: ${{ inputs.builder && 'cloud' || 'docker-container' }}
+        endpoint: ${{ inputs.builder }}
 
-    # the sha tag is what deploy runs, so re-running an old deploy is a rollback
-    - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+    - if: inputs.image-repo != ''
+      uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
       with:
         context: .
         push: true
         tags: |
-          ${{ inputs.namespace }}/${{ github.event.repository.name }}:${{ github.ref_name }}
-          ${{ inputs.namespace }}/${{ github.event.repository.name }}:${{ github.sha }}
+          ${{ steps.ref.outputs.image }}
+          ${{ inputs.image-repo }}:${{ github.ref_name }}
         labels: |
           org.opencontainers.image.source=${{ github.event.repository.html_url }}
           org.opencontainers.image.revision=${{ github.sha }}
-        build-args: BASE_IMAGE=${{ inputs.base-image }}
+        build-args: BASE_IMAGE=${{ inputs.base-image || 'muritechnologies/odoo-enterprise:18.0' }}
+        cache-from: ${{ !inputs.builder && 'type=gha' || '' }}
+        cache-to: ${{ !inputs.builder && 'type=gha,mode=max' || '' }}
+
+    - if: inputs.image-repo == ''
+      shell: bash
+      env:
+        IMAGE: ${{ steps.ref.outputs.image }}
+        BASE_IMAGE: ${{ inputs.base-image || 'muritechnologies/odoo-enterprise:18.0' }}
+        SOURCE: ${{ github.event.repository.html_url }}
+      run: |
+        set -euo pipefail
+        pull=--pull
+        [[ $BASE_IMAGE == localhost/* ]] && pull=
+        docker build $pull -t "$IMAGE" --build-arg BASE_IMAGE="$BASE_IMAGE" \
+            --label org.opencontainers.image.source="$SOURCE" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" .

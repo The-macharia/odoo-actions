@@ -21,7 +21,6 @@ runs:
         set -euo pipefail
         run() { bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" "$@"; }
 
-        # a deploy that changed the db service restarts postgres; converged is not yet accepting connections
         for _ in $(seq 60); do
             run pg_isready -h db -q && break
             sleep 2

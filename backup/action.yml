@@ -33,6 +33,5 @@ runs:
         python3 -c 'import sys, zipfile; sys.exit(zipfile.ZipFile(sys.argv[1]).testzip() is not None)' \
             "$BACKUP_DIR/$file"
 
-        # purge only after today's backup proved readable, so a run of failures never empties the dir
         find "$BACKUP_DIR" -name "$DB.*.zip" -mtime +"$KEEP_DAYS" -delete
         ls -lh "$BACKUP_DIR"

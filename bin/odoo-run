@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# One-off container cloned from the live <stack>_odoo service (image, network, mounts), so no
-# workflow repeats network or volume names that can drift from the compose file.
-# Usage: odoo-run <stack> <command...>; extra `docker run` flags go in ODOO_RUN_ARGS.
 set -euo pipefail
 svc="$1_odoo"
 shift

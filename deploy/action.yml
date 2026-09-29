@@ -4,15 +4,13 @@ inputs:
   stack:
     description: Swarm stack name
     required: true
-  docker-user:
-    description: Docker Hub user
+  image:
+    description: Image reference from the build action
     required: true
+  docker-user:
+    description: Docker Hub user for registry images. Empty skips login.
   docker-pat:
     description: Docker Hub token
-    required: true
-  namespace:
-    description: Docker Hub namespace of the image
-    default: muritechnologies
   network:
     description: External overlay network the compose file joins (default odoo_swarm). Must differ per stack on a shared host.
   compose-file:
@@ -24,7 +22,8 @@ runs:
   steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+    - if: inputs.docker-user != ''
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
       with:
         username: ${{ inputs.docker-user }}
         password: ${{ inputs.docker-pat }}
@@ -32,7 +31,7 @@ runs:
     - shell: bash
       env:
         STACK: ${{ inputs.stack }}
-        IMAGE: ${{ inputs.namespace }}/${{ github.event.repository.name }}:${{ github.sha }}
+        IMAGE: ${{ inputs.image }}
         NETWORK: ${{ inputs.network || 'odoo_swarm' }}
         COMPOSE: ${{ inputs.compose-file || 'docker-compose.yml' }}
         PROJECT_DIR: ${{ inputs.project-dir || '/home/odoo/odoo' }}
@@ -49,11 +48,10 @@ runs:
         docker network inspect "$NETWORK" >/dev/null 2>&1 \
             || docker network create --driver overlay --attachable "$NETWORK"
 
-        # In place, never `stack rm` first: that takes the site down and races the async
-        # network removal ("network <stack>_odoo not found").
+        resolve=always
+        [[ $IMAGE == localhost/* ]] && resolve=never
         IMAGE_TAG="$IMAGE" docker stack deploy -c "$COMPOSE" --with-registry-auth \
-            --resolve-image always --prune --detach=false "$STACK"
+            --resolve-image "$resolve" --prune --detach=false "$STACK"
 
-        # nginx reads its bind-mounted conf and certificates only at startup
         docker service update --force --detach=false "${STACK}_nginx"
 
