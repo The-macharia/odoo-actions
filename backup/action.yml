@@ -1,0 +1,38 @@
+name: Back up Odoo database
+description: Zip backup (dump + filestore) of the stack's database, verified before old backups are purged.
+inputs:
+  stack:
+    description: Swarm stack name
+    required: true
+  db:
+    description: Odoo database name
+    required: true
+  backup-dir:
+    description: Default /home/odoo/backups
+  keep-days:
+    description: Delete backups older than this many days
+    default: '4'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        DB: ${{ inputs.db }}
+        BACKUP_DIR: ${{ inputs.backup-dir || '/home/odoo/backups' }}
+        KEEP_DAYS: ${{ inputs.keep-days }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$BACKUP_DIR"
+        file="$DB.$(date +%F-%H%M%S).zip"
+
+        ODOO_RUN_ARGS="--user 0:0 --mount type=bind,src=$BACKUP_DIR,dst=/var/backups" \
+            bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" \
+            click-odoo-backupdb -c /etc/odoo/odoo.conf "$DB" "/var/backups/$file"
+
+        python3 -c 'import sys, zipfile; sys.exit(zipfile.ZipFile(sys.argv[1]).testzip() is not None)' \
+            "$BACKUP_DIR/$file"
+
+        # purge only after today's backup proved readable, so a run of failures never empties the dir
+        find "$BACKUP_DIR" -name "$DB.*.zip" -mtime +"$KEEP_DAYS" -delete
+        ls -lh "$BACKUP_DIR"

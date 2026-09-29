@@ -1,0 +1,70 @@
+name: Deploy Odoo stack
+description: Sync config to the server, update the swarm stack in place, reload nginx and update changed modules.
+inputs:
+  stack:
+    description: Swarm stack name
+    required: true
+  db:
+    description: Odoo database name
+    required: true
+  docker-user:
+    description: Docker Hub user
+    required: true
+  docker-pat:
+    description: Docker Hub token
+    required: true
+  namespace:
+    description: Docker Hub namespace of the image
+    default: muritechnologies
+  network:
+    description: External overlay network the compose file joins (default odoo_swarm). Must differ per stack on a shared host.
+  compose-file:
+    description: Default docker-compose.yml
+  project-dir:
+    description: Default /home/odoo/odoo
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+      with:
+        username: ${{ inputs.docker-user }}
+        password: ${{ inputs.docker-pat }}
+
+    - shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        DB: ${{ inputs.db }}
+        IMAGE: ${{ inputs.namespace }}/${{ github.event.repository.name }}:${{ github.sha }}
+        NETWORK: ${{ inputs.network || 'odoo_swarm' }}
+        COMPOSE: ${{ inputs.compose-file || 'docker-compose.yml' }}
+        PROJECT_DIR: ${{ inputs.project-dir || '/home/odoo/odoo' }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$PROJECT_DIR"
+        for f in config nginx scripts "$COMPOSE"; do
+            [ ! -e "$f" ] || cp -r "$f" "$PROJECT_DIR/"
+        done
+        cd "$PROJECT_DIR"
+
+        [ "$(docker info --format '{{.Swarm.LocalNodeState}}')" = active ] \
+            || docker swarm init --advertise-addr "$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<NF;i++) if ($i=="src") print $(i+1)}')"
+        docker network inspect "$NETWORK" >/dev/null 2>&1 \
+            || docker network create --driver overlay --attachable "$NETWORK"
+
+        # In place, never `stack rm` first: that takes the site down and races the async
+        # network removal ("network <stack>_odoo not found").
+        IMAGE_TAG="$IMAGE" docker stack deploy -c "$COMPOSE" --with-registry-auth \
+            --resolve-image always --prune --detach=false "$STACK"
+
+        # nginx reads its bind-mounted conf and certificates only at startup
+        docker service update --force --detach=false "${STACK}_nginx"
+
+        # a deploy that changed the db service restarts postgres; converged is not yet accepting connections
+        for _ in $(seq 60); do
+            bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" pg_isready -h db -q && break
+            sleep 2
+        done
+        bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" \
+            click-odoo-update -c /etc/odoo/odoo.conf -d "$DB"

@@ -1,0 +1,23 @@
+name: Upgrade Odoo modules
+description: Force `-u` on the given modules against the stack's database.
+inputs:
+  stack:
+    description: Swarm stack name
+    required: true
+  db:
+    description: Odoo database name
+    required: true
+  modules:
+    description: Comma-separated modules, or all
+    default: all
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        DB: ${{ inputs.db }}
+        MODULES: ${{ inputs.modules }}
+      run: |
+        bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" \
+            odoo -d "$DB" -u "$MODULES" --no-http --stop-after-init

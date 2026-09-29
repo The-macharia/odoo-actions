@@ -1,0 +1,27 @@
+name: Upgrade Module
+on:
+  workflow_dispatch:
+    inputs:
+      modules:
+        description: Comma-separated modules, or all
+        default: all
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: odoo-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  upgrade:
+    runs-on: ${{ vars.RUNNER }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'stage' }}
+    timeout-minutes: 120
+    steps:
+      - uses: The-macharia/odoo-actions/module-upgrade@v1
+        with:
+          stack: ${{ vars.STACK }}
+          db: ${{ vars.MAIN_DB }}
+          modules: ${{ inputs.modules }}

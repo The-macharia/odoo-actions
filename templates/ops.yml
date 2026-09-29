@@ -1,0 +1,33 @@
+name: Restart / Logs
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [logs, restart]
+        default: logs
+      service:
+        type: choice
+        options: [odoo, nginx, db]
+        default: odoo
+      since:
+        description: Log window (docker service logs --since)
+        default: 10m
+
+permissions:
+  contents: read
+
+jobs:
+  ops:
+    runs-on: ${{ vars.RUNNER }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'stage' }}
+    timeout-minutes: 10
+    env:
+      SVC: ${{ vars.STACK }}_${{ inputs.service }}
+      SINCE: ${{ inputs.since }}
+    steps:
+      - if: inputs.action == 'restart'
+        run: docker service update --force --detach=false "$SVC"
+
+      - if: inputs.action == 'logs'
+        run: timeout 9m docker service logs --follow --since "$SINCE" "$SVC" || true

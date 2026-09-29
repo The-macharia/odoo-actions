@@ -1,0 +1,20 @@
+name: Database Backup
+on:
+  schedule:
+    - cron: '15 10,21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ${{ vars.RUNNER }}
+    environment: production
+    timeout-minutes: 90
+    steps:
+      - uses: The-macharia/odoo-actions/backup@v1
+        with:
+          stack: ${{ vars.STACK }}
+          db: ${{ vars.MAIN_DB }}
+          backup-dir: ${{ vars.BACKUP_DIR }}

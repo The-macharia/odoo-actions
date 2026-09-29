@@ -1,0 +1,48 @@
+name: Deploy
+on:
+  push:
+    branches: [main, stage]
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - stage-compose.yml
+      - config/**
+      - custom-addons/**
+      - third-party/**
+      - nginx/**
+      - scripts/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# shared with module-upgrade.yml: never two writers on one database
+concurrency:
+  group: odoo-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: The-macharia/odoo-actions/build@v1
+        with:
+          docker-user: ${{ secrets.DOCKER_USER }}
+          docker-pat: ${{ secrets.DOCKER_PAT }}
+
+  deploy:
+    needs: build
+    runs-on: ${{ vars.RUNNER }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'stage' }}
+    timeout-minutes: 60
+    steps:
+      - uses: The-macharia/odoo-actions/deploy@v1
+        with:
+          stack: ${{ vars.STACK }}
+          db: ${{ vars.MAIN_DB }}
+          network: ${{ vars.NETWORK }}
+          compose-file: ${{ vars.COMPOSE_FILE }}
+          project-dir: ${{ vars.PROJECT_DIR }}
+          docker-user: ${{ secrets.DOCKER_USER }}
+          docker-pat: ${{ secrets.DOCKER_PAT }}
