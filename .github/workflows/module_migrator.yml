@@ -35,13 +35,6 @@ env:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  file-upload-mode-build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: boasihq/interactive-inputs@v2
-
   repository-mode-build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
@@ -49,7 +42,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: ${{github.event.inputs.use_repo}}
           ref: ${{github.event.inputs.branch}}
