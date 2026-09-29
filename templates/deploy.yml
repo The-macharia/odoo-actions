@@ -40,9 +40,20 @@ jobs:
       - uses: The-macharia/odoo-actions/deploy@v1
         with:
           stack: ${{ vars.STACK }}
-          db: ${{ vars.MAIN_DB }}
           network: ${{ vars.NETWORK }}
           compose-file: ${{ vars.COMPOSE_FILE }}
           project-dir: ${{ vars.PROJECT_DIR }}
           docker-user: ${{ secrets.DOCKER_USER }}
           docker-pat: ${{ secrets.DOCKER_PAT }}
+
+  # own job, so a failed update is re-run alone ("Re-run failed jobs") without redeploying
+  upgrade:
+    needs: deploy
+    runs-on: ${{ vars.RUNNER }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'stage' }}
+    timeout-minutes: 120
+    steps:
+      - uses: The-macharia/odoo-actions/module-upgrade@v1
+        with:
+          stack: ${{ vars.STACK }}
+          db: ${{ vars.MAIN_DB }}

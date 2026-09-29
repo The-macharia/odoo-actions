@@ -1,11 +1,8 @@
 name: Deploy Odoo stack
-description: Sync config to the server, update the swarm stack in place, reload nginx and update changed modules.
+description: Sync config to the server, update the swarm stack in place and reload nginx.
 inputs:
   stack:
     description: Swarm stack name
-    required: true
-  db:
-    description: Odoo database name
     required: true
   docker-user:
     description: Docker Hub user
@@ -35,7 +32,6 @@ runs:
     - shell: bash
       env:
         STACK: ${{ inputs.stack }}
-        DB: ${{ inputs.db }}
         IMAGE: ${{ inputs.namespace }}/${{ github.event.repository.name }}:${{ github.sha }}
         NETWORK: ${{ inputs.network || 'odoo_swarm' }}
         COMPOSE: ${{ inputs.compose-file || 'docker-compose.yml' }}
@@ -61,10 +57,3 @@ runs:
         # nginx reads its bind-mounted conf and certificates only at startup
         docker service update --force --detach=false "${STACK}_nginx"
 
-        # a deploy that changed the db service restarts postgres; converged is not yet accepting connections
-        for _ in $(seq 60); do
-            bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" pg_isready -h db -q && break
-            sleep 2
-        done
-        bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" \
-            click-odoo-update -c /etc/odoo/odoo.conf -d "$DB"

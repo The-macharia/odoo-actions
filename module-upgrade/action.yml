@@ -1,5 +1,5 @@
 name: Upgrade Odoo modules
-description: Force `-u` on the given modules against the stack's database.
+description: Update modules on the stack's database, in a throwaway container from the live image.
 inputs:
   stack:
     description: Swarm stack name
@@ -8,8 +8,7 @@ inputs:
     description: Odoo database name
     required: true
   modules:
-    description: Comma-separated modules, or all
-    default: all
+    description: Comma-separated modules or all to force `-u`; empty updates only modules whose code changed
 runs:
   using: composite
   steps:
@@ -19,5 +18,17 @@ runs:
         DB: ${{ inputs.db }}
         MODULES: ${{ inputs.modules }}
       run: |
-        bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" \
-            odoo -d "$DB" -u "$MODULES" --no-http --stop-after-init
+        set -euo pipefail
+        run() { bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" "$@"; }
+
+        # a deploy that changed the db service restarts postgres; converged is not yet accepting connections
+        for _ in $(seq 60); do
+            run pg_isready -h db -q && break
+            sleep 2
+        done
+
+        if [ -z "$MODULES" ]; then
+            run click-odoo-update -c /etc/odoo/odoo.conf -d "$DB"
+        else
+            run odoo -d "$DB" -u "$MODULES" --no-http --stop-after-init
+        fi

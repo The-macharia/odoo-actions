@@ -1,0 +1,21 @@
+name: Restart Service
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        type: choice
+        options: [odoo, nginx, db]
+        default: odoo
+
+permissions:
+  contents: read
+
+jobs:
+  restart:
+    runs-on: ${{ vars.RUNNER }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'stage' }}
+    timeout-minutes: 10
+    steps:
+      - env:
+          SVC: ${{ vars.STACK }}_${{ inputs.service }}
+        run: docker service update --force --detach=false "$SVC"

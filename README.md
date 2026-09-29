@@ -6,10 +6,10 @@ repo/environment variables.
 
 | Action | Used by |
 |---|---|
-| `build` | deploy.yml (GitHub-hosted) |
-| `deploy` | deploy.yml (server) |
+| `build` | deploy.yml `build` job (GitHub-hosted) |
+| `deploy` | deploy.yml `deploy` job |
 | `backup` | backup.yml |
-| `module-upgrade` | module-upgrade.yml |
+| `module-upgrade` | deploy.yml `upgrade` job (changed modules), module-upgrade.yml (forced `-u`) |
 | `ssl-renew` | maintenance.yml |
 
 `bin/odoo-run` clones image, network and mounts from the live `<stack>_odoo` service, so no

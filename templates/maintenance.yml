@@ -8,14 +8,18 @@ permissions:
   contents: read
 
 jobs:
-  maintenance:
+  prune:
     runs-on: ${{ vars.RUNNER }}
-    environment: production
     timeout-minutes: 15
     steps:
       # without -a these remove only anonymous volumes and dangling images; named data volumes are never touched
       - run: docker volume prune -f && docker image prune -f
 
+  ssl-renew:
+    runs-on: ${{ vars.RUNNER }}
+    environment: production
+    timeout-minutes: 15
+    steps:
       - uses: The-macharia/odoo-actions/ssl-renew@v1
         with:
           stack: ${{ vars.STACK }}
