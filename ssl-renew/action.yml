@@ -12,6 +12,7 @@ runs:
         SVC: ${{ inputs.stack }}_nginx
       run: |
         set -euo pipefail
+        docker service inspect "$SVC" >/dev/null 2>&1 || { echo "no $SVC service, nothing to renew"; exit 0; }
         le=$(docker service inspect "$SVC" --format '{{range .Spec.TaskTemplate.ContainerSpec.Mounts}}{{if eq .Target "/etc/letsencrypt"}}{{.Source}}{{end}}{{end}}')
         [ -n "$le" ] || { echo "$SVC mounts no /etc/letsencrypt, nothing to renew"; exit 0; }
         lib="${le%/etc/letsencrypt}/var/lib/letsencrypt"

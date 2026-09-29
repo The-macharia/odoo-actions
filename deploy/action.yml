@@ -53,5 +53,7 @@ runs:
         IMAGE_TAG="$IMAGE" docker stack deploy -c "$COMPOSE" --with-registry-auth \
             --resolve-image "$resolve" --prune --detach=false "$STACK"
 
-        docker service update --force --detach=false "${STACK}_nginx"
+        if docker service inspect "${STACK}_nginx" >/dev/null 2>&1; then
+            docker service update --force --detach=false "${STACK}_nginx"
+        fi
 
