@@ -11,10 +11,6 @@ inputs:
     description: Base image passed as BASE_IMAGE (default muritechnologies/odoo-enterprise:18.0)
   builder:
     description: Docker Build Cloud endpoint for registry builds. Empty uses a buildx builder on the runner with the GitHub Actions cache.
-outputs:
-  image:
-    description: Image reference deploy must run, tagged with the commit sha
-    value: ${{ steps.ref.outputs.image }}
 runs:
   using: composite
   steps:
@@ -23,8 +19,8 @@ runs:
     - id: ref
       shell: bash
       env:
-        REPO: ${{ inputs.image-repo || format('localhost/{0}', github.event.repository.name) }}
-      run: echo "image=$REPO:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+        IMAGE_REPO: ${{ inputs.image-repo }}
+      run: echo "image=$(bash "$GITHUB_ACTION_PATH/../bin/image-ref" "$IMAGE_REPO")" >> "$GITHUB_OUTPUT"
 
     - if: inputs.docker-user != ''
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4

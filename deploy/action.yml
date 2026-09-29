@@ -4,9 +4,8 @@ inputs:
   stack:
     description: Swarm stack name
     required: true
-  image:
-    description: Image reference from the build action
-    required: true
+  image-repo:
+    description: Same value given to the build action; empty means the image was built on this server
   docker-user:
     description: Docker Hub user for registry images. Empty skips login.
   docker-pat:
@@ -31,7 +30,7 @@ runs:
     - shell: bash
       env:
         STACK: ${{ inputs.stack }}
-        IMAGE: ${{ inputs.image }}
+        IMAGE_REPO: ${{ inputs.image-repo }}
         NETWORK: ${{ inputs.network || 'odoo_swarm' }}
         COMPOSE: ${{ inputs.compose-file || 'docker-compose.yml' }}
         PROJECT_DIR: ${{ inputs.project-dir || '/home/odoo/odoo' }}
@@ -48,9 +47,15 @@ runs:
         docker network inspect "$NETWORK" >/dev/null 2>&1 \
             || docker network create --driver overlay --attachable "$NETWORK"
 
-        resolve=always
-        [[ $IMAGE == localhost/* ]] && resolve=never
-        IMAGE_TAG="$IMAGE" docker stack deploy -c "$COMPOSE" --with-registry-auth \
+        IMAGE=$(bash "$GITHUB_ACTION_PATH/../bin/image-ref" "$IMAGE_REPO")
+        if [[ $IMAGE == localhost/* ]]; then
+            docker image inspect "$IMAGE" >/dev/null
+            resolve=never
+        else
+            docker pull -q "$IMAGE" >/dev/null
+            resolve=always
+        fi
+        IMAGE_TAG="$IMAGE" timeout 15m docker stack deploy -c "$COMPOSE" --with-registry-auth \
             --resolve-image "$resolve" --prune --detach=false "$STACK"
 
         if docker service inspect "${STACK}_nginx" >/dev/null 2>&1; then

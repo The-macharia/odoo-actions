@@ -4,6 +4,7 @@ on:
     branches: [main, stage]
     paths:
       - Dockerfile
+      - requirements.txt
       - docker-compose.yml
       - stage-compose.yml
       - config/**
@@ -24,11 +25,8 @@ jobs:
   build:
     runs-on: ${{ vars.IMAGE_REPO && 'ubuntu-latest' || vars.RUNNER }}
     timeout-minutes: 30
-    outputs:
-      image: ${{ steps.build.outputs.image }}
     steps:
-      - id: build
-        uses: The-macharia/odoo-actions/build@v1
+      - uses: The-macharia/odoo-actions/build@v1
         with:
           image-repo: ${{ vars.IMAGE_REPO }}
           base-image: ${{ vars.BASE_IMAGE }}
@@ -45,7 +43,7 @@ jobs:
       - uses: The-macharia/odoo-actions/deploy@v1
         with:
           stack: ${{ vars.STACK }}
-          image: ${{ needs.build.outputs.image }}
+          image-repo: ${{ vars.IMAGE_REPO }}
           network: ${{ vars.NETWORK }}
           compose-file: ${{ vars.COMPOSE_FILE }}
           project-dir: ${{ vars.PROJECT_DIR }}
