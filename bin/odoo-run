@@ -11,5 +11,7 @@ while read -r m; do
     [ -n "$m" ] && mounts+=(--mount "$m")
 done < <(spec '{{range .Spec.TaskTemplate.ContainerSpec.Mounts}}{{if .Source}}type={{.Type}},src={{.Source}},dst={{.Target}}{{if .ReadOnly}},readonly{{end}}{{"\n"}}{{end}}{{end}}')
 
+# Swarm's VIP drops TCP connections idle for 900s; click-odoo-backupdb holds one idle through the filestore copy.
 # shellcheck disable=SC2086
-exec docker run --rm --network "$net" "${mounts[@]}" ${ODOO_RUN_ARGS:-} "$img" "$@"
+exec docker run --rm --network "$net" --sysctl net.ipv4.tcp_keepalive_time=300 \
+    "${mounts[@]}" ${ODOO_RUN_ARGS:-} "$img" "$@"
