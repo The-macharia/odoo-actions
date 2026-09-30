@@ -3,6 +3,9 @@ on:
   schedule:
     - cron: '15 10,21 * * *'
   workflow_dispatch:
+    inputs:
+      db:
+        description: Database to back up; empty uses MAIN_DB
 
 permissions:
   contents: read
@@ -16,5 +19,5 @@ jobs:
       - uses: The-macharia/odoo-actions/backup@v1
         with:
           stack: ${{ vars.STACK }}
-          db: ${{ vars.MAIN_DB }}
+          db: ${{ inputs.db || vars.MAIN_DB }}
           backup-dir: ${{ vars.BACKUP_DIR }}

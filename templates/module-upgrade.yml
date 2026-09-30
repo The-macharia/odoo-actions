@@ -23,5 +23,5 @@ jobs:
       - uses: The-macharia/odoo-actions/module-upgrade@v1
         with:
           stack: ${{ vars.STACK }}
-          db: ${{ vars.MAIN_DB }}
+          db: ${{ vars.UPGRADE_DB }}
           modules: ${{ inputs.modules }}

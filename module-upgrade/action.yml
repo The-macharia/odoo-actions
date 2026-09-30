@@ -1,12 +1,11 @@
 name: Upgrade Odoo modules
-description: Update modules on the stack's database, in a throwaway container from the live image.
+description: Update modules on the stack's databases, in a throwaway container from the live image.
 inputs:
   stack:
     description: Swarm stack name
     required: true
   db:
-    description: Odoo database name
-    required: true
+    description: Comma-separated databases; empty updates every database on the image's Odoo series
   modules:
     description: Comma-separated modules or all to force `-u`; empty updates only modules whose code changed
 runs:
@@ -26,8 +25,16 @@ runs:
             sleep 2
         done
 
-        if [ -z "$MODULES" ]; then
-            run click-odoo-update -c /etc/odoo/odoo.conf -d "$DB"
-        else
-            run odoo -d "$DB" -u "$MODULES" --no-http --stop-after-init
-        fi
+        [ -n "$DB" ] || DB=$(run python3 -c "$(cat "$GITHUB_ACTION_PATH/../bin/list-dbs.py")" | paste -sd,)
+        IFS=, read -ra dbs <<< "$DB"
+        [ ${#dbs[@]} -gt 0 ] || { echo "::error::no databases to upgrade on $STACK"; exit 1; }
+
+        for db in "${dbs[@]}"; do
+            echo "::group::$db"
+            if [ -z "$MODULES" ]; then
+                run click-odoo-update -c /etc/odoo/odoo.conf -d "$db"
+            else
+                run odoo -d "$db" -u "$MODULES" --no-http --stop-after-init
+            fi
+            echo "::endgroup::"
+        done

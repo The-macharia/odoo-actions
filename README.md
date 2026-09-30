@@ -45,6 +45,7 @@ Environments `production` (branch `main` only) and `stage`, each with:
 |---|---|---|
 | `STACK` | `acme` | — |
 | `MAIN_DB` | `acme_prod` | — |
+| `UPGRADE_DB` | `acme_prod,acme_test` | every database on the image's Odoo series |
 | `NETWORK` | `odoo_swarm` / `stage_swarm` | `odoo_swarm` |
 | `COMPOSE_FILE` | `stage-compose.yml` | `docker-compose.yml` |
 | `PROJECT_DIR` | `/home/odoo/stage` | `/home/odoo/odoo` |
