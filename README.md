@@ -10,6 +10,7 @@ repo/environment variables.
 | `deploy` | deploy.yml `deploy` job |
 | `backup` | backup.yml |
 | `module-upgrade` | deploy.yml `upgrade` job (changed modules), module-upgrade.yml (forced `-u`) |
+| `restart-stack` | restart-stack.yml: removes the stack and redeploys it with the image it was running |
 | `ssl-renew` | maintenance.yml |
 
 `bin/odoo-run` clones image, network and mounts from the live `<stack>_odoo` service, so no

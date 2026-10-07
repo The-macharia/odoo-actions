@@ -1,0 +1,35 @@
+name: Restart Odoo stack
+description: Remove the stack and deploy it again from the server's compose file, with the image it was running.
+inputs:
+  stack:
+    description: Swarm stack name
+    required: true
+  compose-file:
+    description: Default docker-compose.yml
+  project-dir:
+    description: Default /home/odoo/odoo
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        COMPOSE: ${{ inputs.compose-file || 'docker-compose.yml' }}
+        PROJECT_DIR: ${{ inputs.project-dir || '/home/odoo/odoo' }}
+      run: |
+        set -euo pipefail
+        cd "$PROJECT_DIR"
+        IMAGE=$(docker service inspect "${STACK}_odoo" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')
+
+        docker stack rm "$STACK"
+        # stack rm returns while containers are still stopping; a new db task
+        # started over a live one takes over its data directory
+        for _ in $(seq 90); do
+            [ -n "$(docker ps -q --filter "label=com.docker.stack.namespace=$STACK")" ] || break
+            sleep 2
+        done
+        [ -z "$(docker ps -q --filter "label=com.docker.stack.namespace=$STACK")" ] \
+            || { echo "::error::$STACK containers still running after 3 minutes"; exit 1; }
+
+        IMAGE_TAG="$IMAGE" timeout 15m docker stack deploy -c "$COMPOSE" \
+            --resolve-image never --detach=false "$STACK"

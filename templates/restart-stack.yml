@@ -1,0 +1,22 @@
+name: Restart Stack
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: odoo-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  restart:
+    runs-on: ${{ vars.RUNNER }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'stage' }}
+    timeout-minutes: 30
+    steps:
+      - uses: The-macharia/odoo-actions/restart-stack@v1
+        with:
+          stack: ${{ vars.STACK }}
+          compose-file: ${{ vars.COMPOSE_FILE }}
+          project-dir: ${{ vars.PROJECT_DIR }}
