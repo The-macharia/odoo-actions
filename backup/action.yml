@@ -25,13 +25,23 @@ runs:
         set -euo pipefail
         mkdir -p "$BACKUP_DIR"
         file="$DB.$(date +%F-%H%M%S).zip"
+        name="$STACK-backup-$$"
 
-        ODOO_RUN_ARGS="--user 0:0 --mount type=bind,src=$BACKUP_DIR,dst=/var/backups" \
+        # On cancel the runner signals only this shell and SIGKILLs the rest, so the
+        # container is removed from here, not odoo-run; the job must sit in `wait`
+        # for the trap to fire. A partial zip is dropped so backup-download never
+        # serves it as the newest file.
+        trap 'docker rm -f "$name" >/dev/null 2>&1; [ -n "${ok:-}" ] || rm -f "$BACKUP_DIR/$file"' EXIT
+        trap 'exit 130' INT TERM
+
+        ODOO_RUN_ARGS="--name $name --user 0:0 --mount type=bind,src=$BACKUP_DIR,dst=/var/backups" \
             bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" \
-            click-odoo-backupdb -c /etc/odoo/odoo.conf "$DB" "/var/backups/$file"
+            click-odoo-backupdb -c /etc/odoo/odoo.conf "$DB" "/var/backups/$file" &
+        wait $!
 
         python3 -c 'import sys, zipfile; sys.exit(zipfile.ZipFile(sys.argv[1]).testzip() is not None)' \
             "$BACKUP_DIR/$file"
+        ok=1
 
         find "$BACKUP_DIR" -name "$DB.*.zip" -mtime +"$KEEP_DAYS" -delete
         ls -lh "$BACKUP_DIR"
