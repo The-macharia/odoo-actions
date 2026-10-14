@@ -25,3 +25,4 @@ jobs:
           stack: ${{ vars.STACK }}
           db: ${{ vars.UPGRADE_DB }}
           modules: ${{ inputs.modules }}
+          network: ${{ vars.NETWORK }}

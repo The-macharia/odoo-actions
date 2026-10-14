@@ -60,3 +60,4 @@ jobs:
         with:
           stack: ${{ vars.STACK }}
           db: ${{ vars.UPGRADE_DB }}
+          network: ${{ vars.NETWORK }}

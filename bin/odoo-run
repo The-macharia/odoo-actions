@@ -5,7 +5,7 @@ shift
 spec() { docker service inspect "$svc" --format "$1"; }
 
 img=$(spec '{{.Spec.TaskTemplate.ContainerSpec.Image}}')
-net=$(spec '{{(index .Spec.TaskTemplate.Networks 0).Target}}')
+net="${NETWORK:-odoo_swarm}"
 mounts=()
 while read -r m; do
     [ -n "$m" ] && mounts+=(--mount "$m")

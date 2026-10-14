@@ -8,6 +8,8 @@ inputs:
     description: Comma-separated databases; empty updates every database on the image's Odoo series
   modules:
     description: Comma-separated modules or all to force `-u`; empty updates only modules whose code changed
+  network:
+    description: Overlay network the throwaway container joins (default odoo_swarm)
 runs:
   using: composite
   steps:
@@ -16,6 +18,7 @@ runs:
         STACK: ${{ inputs.stack }}
         DB: ${{ inputs.db }}
         MODULES: ${{ inputs.modules }}
+        NETWORK: ${{ inputs.network }}
       run: |
         set -euo pipefail
         run() { bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" "$@"; }

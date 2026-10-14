@@ -12,6 +12,8 @@ inputs:
   keep-days:
     description: Delete backups older than this many days
     default: '4'
+  network:
+    description: Overlay network the throwaway container joins (default odoo_swarm)
 runs:
   using: composite
   steps:
@@ -21,6 +23,7 @@ runs:
         DB: ${{ inputs.db }}
         BACKUP_DIR: ${{ inputs.backup-dir || '/home/odoo/backups' }}
         KEEP_DAYS: ${{ inputs.keep-days }}
+        NETWORK: ${{ inputs.network }}
       run: |
         set -euo pipefail
         mkdir -p "$BACKUP_DIR"

@@ -21,3 +21,4 @@ jobs:
           stack: ${{ vars.STACK }}
           db: ${{ inputs.db || vars.MAIN_DB }}
           backup-dir: ${{ vars.BACKUP_DIR }}
+          network: ${{ vars.NETWORK }}
