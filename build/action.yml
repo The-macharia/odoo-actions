@@ -11,10 +11,21 @@ inputs:
     description: Base image passed as BASE_IMAGE (default muritechnologies/odoo-enterprise:18.0)
   builder:
     description: Docker Build Cloud endpoint for registry builds. Empty uses a buildx builder on the runner with the GitHub Actions cache.
+  submodules:
+    description: "`true` checks out submodules and moves each to the tip of its tracked branch, so shared modules ship at their latest. Empty skips submodules."
+  token:
+    description: Token for the checkout; needs read access to private submodules. Empty uses github.token.
 runs:
   using: composite
   steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      with:
+        submodules: ${{ inputs.submodules == 'true' }}
+        token: ${{ inputs.token || github.token }}
+
+    - if: inputs.submodules == 'true'
+      shell: bash
+      run: git submodule update --remote
 
     - id: ref
       shell: bash

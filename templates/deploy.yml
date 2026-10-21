@@ -28,6 +28,8 @@ jobs:
     steps:
       - uses: The-macharia/odoo-actions/build@v1
         with:
+          submodules: ${{ vars.SUBMODULES }}
+          token: ${{ secrets.PRIVATE_TOKEN_PAT }}
           image-repo: ${{ vars.IMAGE_REPO }}
           base-image: ${{ vars.BASE_IMAGE }}
           builder: ${{ vars.BUILDER }}

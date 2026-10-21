@@ -39,6 +39,7 @@ Repo variables:
 | `IMAGE_REPO` | registry repo to push to; unset builds on the server | unset |
 | `BASE_IMAGE` | image passed as `BASE_IMAGE` | `muritechnologies/odoo-enterprise:18.0` |
 | `BUILDER` | Docker Build Cloud endpoint; unset uses buildx with the GitHub Actions cache | unset |
+| `SUBMODULES` | `true` builds with submodules (shared modules such as `oo_fleet_management`) at the tip of their tracked branch | unset |
 
 Environments `production` (branch `main` only) and `stage`, each with:
 
@@ -55,7 +56,8 @@ Environments `production` (branch `main` only) and `stage`, each with:
 Do not add required reviewers to `production`: scheduled backups and maintenance run in it and
 would wait for approval.
 
-Secrets: `DOCKER_USER`, `DOCKER_PAT` (see the table above for when they are needed).
+Secrets: `DOCKER_USER`, `DOCKER_PAT` (see the table above for when they are needed), and
+`PRIVATE_TOKEN_PAT` with read access to private submodules when `SUBMODULES` is set.
 
 The compose file joins the external network the deploy action creates:
 
