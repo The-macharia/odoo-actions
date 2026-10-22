@@ -1,5 +1,5 @@
 name: Upgrade Odoo modules
-description: Update modules on the stack's databases, in a throwaway container from the live image.
+description: Update modules on the stack's databases, in a throwaway container from the live image, with the live service scaled to 0.
 inputs:
   stack:
     description: Swarm stack name
@@ -32,12 +32,24 @@ runs:
         IFS=, read -ra dbs <<< "$DB"
         [ ${#dbs[@]} -gt 0 ] || { echo "::error::no databases to upgrade on $STACK"; exit 1; }
 
+        # Live workers would queue behind the update's table locks and could read a half-migrated
+        # schema, so the service is down while it runs. As in backup, a cancel SIGKILLs everything but
+        # this shell: the trap removes the container (rolling back its transaction) and restores odoo.
+        svc="${STACK}_odoo"
+        name="$STACK-upgrade-$$"
+        replicas=$(docker service inspect "$svc" --format '{{.Spec.Mode.Replicated.Replicas}}')
+        trap 'docker rm -f "$name" >/dev/null 2>&1; docker service scale "$svc=$replicas" --detach=false' EXIT
+        trap 'exit 130' INT TERM
+        docker service scale "$svc=0" --detach=false
+        export ODOO_RUN_ARGS="--name $name"
+
         for db in "${dbs[@]}"; do
             echo "::group::$db"
             if [ -z "$MODULES" ]; then
-                run click-odoo-update -c /etc/odoo/odoo.conf -d "$db"
+                run click-odoo-update -c /etc/odoo/odoo.conf -d "$db" &
             else
-                run odoo -d "$db" -u "$MODULES" --no-http --stop-after-init
+                run odoo -d "$db" -u "$MODULES" --no-http --stop-after-init &
             fi
+            wait $!
             echo "::endgroup::"
         done
