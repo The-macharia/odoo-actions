@@ -22,9 +22,9 @@ workflow names a network or volume.
 |---|---|---|
 | `IMAGE_REPO` | `acme/odoo` | unset |
 | Build runs on | GitHub-hosted runner | the client's server (`RUNNER`) |
-| Image | pushed as `acme/odoo:<sha>` and `:<branch>` | kept locally as `localhost/<repo>:<sha>` |
+| Image | deployed as `acme/odoo:<branch>`, also pushed as `:<sha>` | kept locally as `localhost/<repo>:<sha>` |
 | `DOCKER_USER` / `DOCKER_PAT` | client's account (push + pull) | only if the base image is private on Docker Hub |
-| Rollback | re-run an old deploy (pulls the old sha) | re-run an old deploy (rebuilds the old sha) |
+| Rollback | re-run all jobs of an old deploy (rebuilds the old sha as `:<branch>`) | re-run an old deploy (rebuilds the old sha) |
 
 The `localhost/` prefix keeps swarm from ever pulling a same-named public image from Docker Hub.
 Server builds use the production host's CPU and memory while they run.

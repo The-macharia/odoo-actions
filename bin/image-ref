@@ -1,2 +1,8 @@
 #!/usr/bin/env bash
-echo "${1:-localhost/${GITHUB_REPOSITORY#*/}}:$GITHUB_SHA"
+# A registry image deploys under its branch tag, as the client compose files default to; a local one keeps the
+# commit tag, since it deploys with --resolve-image never and only a changed tag makes swarm roll it.
+if [ -n "${1:-}" ]; then
+    echo "$1:$GITHUB_REF_NAME"
+else
+    echo "localhost/${GITHUB_REPOSITORY#*/}:$GITHUB_SHA"
+fi

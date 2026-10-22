@@ -52,7 +52,7 @@ runs:
         push: true
         tags: |
           ${{ steps.ref.outputs.image }}
-          ${{ inputs.image-repo }}:${{ github.ref_name }}
+          ${{ inputs.image-repo }}:${{ github.sha }}
         labels: |
           org.opencontainers.image.source=${{ github.event.repository.html_url }}
           org.opencontainers.image.revision=${{ github.sha }}
