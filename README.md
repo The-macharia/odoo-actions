@@ -113,7 +113,8 @@ Per server, once:
      counting `(workers + max_cron_threads) * db_maxconn + db_maxconn_gevent`. The clients use
      `db_maxconn = 8` and `db_maxconn_gevent = 32` (the websocket process) and set `max_connections`
      explicitly: 100 for one instance of up to 4 workers and 3 crons, more where instances share a db;
-   - publish the db port with `mode: host`, so outside clients show their real address;
+   - leave the db port's publish mode alone: switching a running db from ingress to `mode: host`
+     failed on gass with "address already in use" and left the stack without a database;
    - cap container logs (`json-file`, `max-size`).
 4. In the nginx `server{}` that serves Odoo: `include /etc/nginx/conf.d/monitor/*.locations;`. The hub
    needs nothing; its `server{}` is written by the action once the certificate is issued.
