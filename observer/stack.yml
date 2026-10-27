@@ -62,7 +62,8 @@ services:
     logging: *logging
     deploy:
       resources:
-        limits: {cpus: '0.50', memory: 384M}
+        # 384M got the hub's Grafana OOM-killed while it served every server's dashboards
+        limits: {cpus: '0.50', memory: 768M}
         reservations: {memory: 96M}
 
   alloy:
