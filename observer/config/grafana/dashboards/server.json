@@ -105,7 +105,7 @@
 
     {"type": "timeseries", "title": "Containers per service (restarts show as steps)", "gridPos": {"x": 0, "y": 33, "w": 12, "h": 8},
      "datasource": {"type": "prometheus", "uid": "${ds}"},
-     "targets": [{"refId": "A", "expr": "count by (service) (label_replace(max_over_time(container_start_time_seconds{container_label_com_docker_swarm_service_name!=\"\"}[15m]), \"service\", \"$1\", \"container_label_com_docker_swarm_service_name\", \"(.+)\"))", "legendFormat": "{{service}}"}],
+     "targets": [{"refId": "A", "expr": "count by (service) (count by (service, name) (label_replace(max_over_time(container_start_time_seconds{container_label_com_docker_swarm_service_name!=\"\"}[15m]), \"service\", \"$1\", \"container_label_com_docker_swarm_service_name\", \"(.+)\")))", "legendFormat": "{{service}}"}],
      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []}},
     {"type": "timeseries", "title": "Out-of-memory kills", "gridPos": {"x": 12, "y": 33, "w": 12, "h": 8},
      "datasource": {"type": "prometheus", "uid": "${ds}"},

@@ -66,13 +66,13 @@ groups:
           summary: '{{ $labels.mountpoint }} will be full within 24h at the current rate'
           description: Free space now or the database stops accepting writes.
           dashboard: __URL__/d/server
-      # each restart is a new container; a deploy alone starts up to 4 per service (rolling update,
-      # then Odoo falling over while its db restarts), so only more than 5 in 15 min is a loop
+      # each restart is a new container name; count names, since a cadvisor restart repeats every series.
+      # A deploy alone starts up to 4 per service, so only more than 5 in 15 min is a loop
       - alert: ServiceRestarting
         expr: >-
-          count by (service) (label_replace(
+          count by (service) (count by (service, name) (label_replace(
             max_over_time(container_start_time_seconds{container_label_com_docker_swarm_service_name!=""}[15m]),
-            "service", "$1", "container_label_com_docker_swarm_service_name", "(.+)")) > 5
+            "service", "$1", "container_label_com_docker_swarm_service_name", "(.+)"))) > 5
         labels: {severity: critical}
         annotations:
           summary: '{{ $labels.service }} restarted {{ $value }} times in 15 minutes'
