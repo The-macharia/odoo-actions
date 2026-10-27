@@ -1,0 +1,39 @@
+groups:
+  - name: observer-hub
+    rules:
+      # pinged out to healthchecks.io every minute; silence there means the hub itself is down
+      - alert: Watchdog
+        expr: vector(1)
+        labels: {severity: none}
+        annotations:
+          summary: Hub heartbeat
+      - alert: ClientUnreachable
+        expr: up{job="fleet"} == 0
+        for: 3m
+        labels: {severity: critical}
+        annotations:
+          summary: Cannot reach the observer on {{ $labels.instance }}
+          description: The server, its nginx or its observer stack is down; its own alerts cannot get out either.
+          dashboard: __URL__/d/fleet
+      - alert: OdooUnreachableFromOutside
+        expr: probe_success{job="fleet-odoo"} == 0
+        for: 3m
+        labels: {severity: critical}
+        annotations:
+          summary: '{{ $labels.instance }} fails from outside'
+          description: DNS, certificate, firewall or nginx; the server may look healthy from inside.
+          dashboard: __URL__/d/fleet
+      - alert: SslCertExpiring
+        expr: (probe_ssl_earliest_cert_expiry{job="fleet-odoo"} - time()) / 86400 < 14
+        labels: {severity: warning}
+        annotations:
+          summary: Certificate for {{ $labels.instance }} expires in {{ $value | printf "%.0f" }} days
+          description: The nightly ssl-renew job is failing on that server.
+          dashboard: __URL__/d/fleet
+      - alert: SslCertExpiring
+        expr: (probe_ssl_earliest_cert_expiry{job="fleet-odoo"} - time()) / 86400 < 3
+        labels: {severity: critical}
+        annotations:
+          summary: Certificate for {{ $labels.instance }} expires in {{ $value | printf "%.0f" }} days
+          description: Renew by hand now (ssl-renew action).
+          dashboard: __URL__/d/fleet

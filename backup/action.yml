@@ -45,6 +45,9 @@ runs:
         python3 -c 'import sys, zipfile; sys.exit(zipfile.ZipFile(sys.argv[1]).testzip() is not None)' \
             "$BACKUP_DIR/$file"
         ok=1
+        # read by the observer's node-exporter (textfile collector) for the BackupTooOld alert
+        echo "odoo_backup_last_success_timestamp_seconds{db=\"$DB\"} $(date +%s)" > "$BACKUP_DIR/odoo_backup.prom.$$"
+        mv "$BACKUP_DIR/odoo_backup.prom.$$" "$BACKUP_DIR/odoo_backup.prom"
 
         find "$BACKUP_DIR" -name "$DB.*.zip" -mtime +"$KEEP_DAYS" -delete
         ls -lh "$BACKUP_DIR"

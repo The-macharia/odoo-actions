@@ -1,0 +1,58 @@
+rule_files:
+  - ../config/prometheus/rules/observer.yml
+
+evaluation_interval: 30s
+
+tests:
+  # 80 of 92 usable (100 - 3 superuser - 5 reserved); the observer's own connection is ignored
+  - interval: 30s
+    input_series:
+      - {series: pg_settings_max_connections, values: 100x20}
+      - {series: pg_settings_superuser_reserved_connections, values: 3x20}
+      - {series: pg_settings_reserved_connections, values: 5x20}
+      - {series: 'pg_holder_connections{holder="gass_odoo.1", opid="101", state="idle", usename="odoo"}', values: 50x20}
+      - {series: 'pg_holder_connections{holder="gass_odoo.1", opid="102", state="active", usename="odoo"}', values: 30x20}
+      - {series: 'pg_holder_connections{holder="observer-exporter", opid="", state="active", usename="observer"}', values: 9x20}
+      - {series: 'pg_holder_max_xact_seconds{holder="gass_odoo.1", opid="103", state="idle in transaction", datname="gass", usename="odoo"}', values: 400x20}
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PostgresConnectionsHigh
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: PostgresConnectionsHigh
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: 86.96% of usable connections taken
+              description: The holders table shows which process and address hold them.
+              dashboard: __URL__/d/pg-connections
+      - eval_time: 3m
+        alertname: PostgresIdleInTransaction
+        exp_alerts:
+          - exp_labels: {severity: warning, holder: gass_odoo.1, opid: '103', datname: gass}
+            exp_annotations:
+              summary: gass_odoo.1-103 has sat idle in a transaction for 6m 40s
+              description: It holds its locks and its connection until it commits; look up that pid in the Odoo log.
+              dashboard: __URL__/d/pg-connections
+
+  # 85 of 92 crosses the critical line too
+  - interval: 30s
+    input_series:
+      - {series: pg_settings_max_connections, values: 100x20}
+      - {series: pg_settings_superuser_reserved_connections, values: 3x20}
+      - {series: pg_settings_reserved_connections, values: 5x20}
+      - {series: 'pg_holder_connections{holder="odoo", opid="7", state="idle", usename="odoo"}', values: 85x20}
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PostgresConnectionsHigh
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: 92.39% of usable connections taken
+              description: The holders table shows which process and address hold them.
+              dashboard: __URL__/d/pg-connections
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: 92.39% of usable connections taken
+              description: New connections will be refused soon. The holders table shows who holds them.
+              dashboard: __URL__/d/pg-connections

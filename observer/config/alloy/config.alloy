@@ -1,0 +1,66 @@
+logging {
+  level = "warn"
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_swarm_service_name"]
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.main.receiver]
+}
+
+loki.process "main" {
+  // Odoo and Postgres start every record with a date; anything else (tracebacks, deadlock
+  // DETAIL lines) continues the previous record. Other services log one line per record and
+  // would be glued together by this rule.
+  stage.match {
+    selector = "{service=~\".+_(odoo|website|odoo15|db)\"}"
+
+    stage.multiline {
+      firstline     = "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"
+      max_lines     = 500
+      max_wait_time = "3s"
+    }
+    stage.regex {
+      expression = "\\b(?P<level>DEBUG|INFO|WARNING|ERROR|CRITICAL|LOG|FATAL|PANIC)\\b"
+    }
+    stage.labels {
+      values = { level = "" }
+    }
+  }
+
+  // psql \watch separates iterations with blank lines
+  stage.match {
+    selector = "{service=\"observer_recorder\"}"
+
+    stage.drop {
+      expression = "^\\s*$"
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+  external_labels = { client = "__CLIENT__" }
+}

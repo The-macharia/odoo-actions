@@ -1,0 +1,45 @@
+{
+  "uid": "pg-live",
+  "title": "Postgres live (this server)",
+  "description": "Queried straight from pg_stat_activity on this server's database, so it always shows this server even on the hub.",
+  "tags": ["observer"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": {"from": "now-5m", "to": "now"},
+  "schemaVersion": 39,
+  "links": [{"title": "Dashboards", "type": "dashboards", "tags": ["observer"], "asDropdown": true, "keepTime": true}],
+  "templating": {"list": []},
+  "panels": [
+    {"type": "table", "title": "Sessions, oldest transaction first", "gridPos": {"x": 0, "y": 0, "w": 24, "h": 13},
+     "datasource": {"type": "grafana-postgresql-datasource", "uid": "pg"},
+     "targets": [{"refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+       "rawSql": "SELECT pid, application_name AS holder, usename AS \"user\", datname AS db, host(client_addr) AS client, state,\n       wait_event_type || ':' || wait_event AS waiting_on, array_to_string(pg_blocking_pids(pid), ',') AS blocked_by,\n       extract(epoch FROM now() - xact_start)::int AS in_transaction, extract(epoch FROM now() - query_start)::int AS query_age,\n       extract(epoch FROM now() - backend_start)::int AS connected, left(query, 500) AS query\nFROM pg_stat_activity\nWHERE backend_type = 'client backend' AND pid <> pg_backend_pid()\nORDER BY xact_start NULLS LAST, backend_start"}],
+     "fieldConfig": {"defaults": {}, "overrides": [
+       {"matcher": {"id": "byRegexp", "options": "in_transaction|query_age|connected"}, "properties": [{"id": "unit", "value": "s"}]},
+       {"matcher": {"id": "byName", "options": "in_transaction"}, "properties": [
+         {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+         {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "transparent", "value": null}, {"color": "orange", "value": 60}, {"color": "red", "value": 300}]}}]},
+       {"matcher": {"id": "byName", "options": "query"}, "properties": [{"id": "custom.width", "value": 700}]}]},
+     "options": {"showHeader": true, "footer": {"show": true, "reducer": ["count"], "fields": ["pid"]}}},
+    {"type": "table", "title": "Blocking chain: who waits on whom", "gridPos": {"x": 0, "y": 13, "w": 24, "h": 8},
+     "datasource": {"type": "grafana-postgresql-datasource", "uid": "pg"},
+     "targets": [{"refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+       "rawSql": "SELECT w.pid AS waiting_pid, w.application_name AS waiting_holder, extract(epoch FROM now() - w.query_start)::int AS waiting_for,\n       left(w.query, 300) AS waiting_query,\n       b.pid AS blocking_pid, b.application_name AS blocking_holder, b.state AS blocking_state,\n       extract(epoch FROM now() - b.xact_start)::int AS blocking_transaction_age, left(b.query, 300) AS blocking_query\nFROM pg_stat_activity w\nCROSS JOIN LATERAL unnest(pg_blocking_pids(w.pid)) AS bp(pid)\nJOIN pg_stat_activity b ON b.pid = bp.pid\nORDER BY waiting_for DESC"}],
+     "fieldConfig": {"defaults": {}, "overrides": [
+       {"matcher": {"id": "byRegexp", "options": "waiting_for|blocking_transaction_age"}, "properties": [{"id": "unit", "value": "s"}]}]},
+     "options": {"showHeader": true, "footer": {"show": false}}},
+    {"type": "table", "title": "Connections by holder", "gridPos": {"x": 0, "y": 21, "w": 8, "h": 10},
+     "datasource": {"type": "grafana-postgresql-datasource", "uid": "pg"},
+     "targets": [{"refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+       "rawSql": "SELECT coalesce(nullif(application_name, ''), 'unnamed') AS holder, state, count(*) AS connections\nFROM pg_stat_activity WHERE backend_type = 'client backend'\nGROUP BY 1, 2 ORDER BY 3 DESC"}],
+     "fieldConfig": {"defaults": {}, "overrides": []},
+     "options": {"showHeader": true, "footer": {"show": true, "reducer": ["sum"], "fields": ["connections"]}}},
+    {"type": "table", "title": "Top statements since the last stats reset", "gridPos": {"x": 8, "y": 21, "w": 16, "h": 10},
+     "datasource": {"type": "grafana-postgresql-datasource", "uid": "pg"},
+     "targets": [{"refId": "A", "format": "table", "rawQuery": true, "editorMode": "code",
+       "rawSql": "SELECT left(s.query, 500) AS query, d.datname AS db, s.calls, round(s.total_exec_time::numeric / 1000, 1) AS total_s,\n       round(s.mean_exec_time::numeric, 1) AS mean_ms, s.rows\nFROM pg_stat_statements s JOIN pg_database d ON d.oid = s.dbid\nORDER BY s.total_exec_time DESC LIMIT 25"}],
+     "fieldConfig": {"defaults": {}, "overrides": [
+       {"matcher": {"id": "byName", "options": "query"}, "properties": [{"id": "custom.width", "value": 700}]}]},
+     "options": {"showHeader": true, "footer": {"show": false}}}
+  ]
+}

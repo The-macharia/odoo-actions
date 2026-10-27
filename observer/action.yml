@@ -1,0 +1,63 @@
+name: Observer stack
+description: Deploy the Prometheus/Loki/Grafana observer next to an Odoo stack, served under /monitor (or as the hub).
+inputs:
+  action:
+    description: deploy or down
+    default: deploy
+  stack:
+    description: Swarm stack name of the Odoo app (its db service is <stack>_db)
+    required: true
+  client:
+    description: Name this server reports as in alerts and on the hub
+    required: true
+  domain:
+    description: Domain whose nginx serves /monitor; the hub domain on the hub
+    required: true
+  hub:
+    description: Hub domain that receives every server's alerts
+    required: true
+  db:
+    description: Odoo database the exporter and Grafana connect to (pg_stat_statements lives there)
+    required: true
+  network:
+    description: Default odoo_swarm
+  project-dir:
+    description: Default /home/odoo/odoo
+  backup-dir:
+    description: Where the backup action records its last success; default /home/odoo/backups
+  fleet-file:
+    description: Hub only; lines of "<client> <domain> [probe]"
+    default: monitor/fleet.txt
+  password:
+    description: Grafana admin password
+    required: true
+  fleet-password:
+    description: Shared password between the hub and every server (basic auth user "fleet")
+    required: true
+  telegram-bot-token:
+    description: Hub only; Telegram bot token (from @BotFather) that posts the alerts
+  telegram-chat-id:
+    description: Hub only; numeric id of the Telegram chat or group the bot posts to
+  heartbeat-url:
+    description: Hub only; dead-man ping URL (healthchecks.io) for the hub itself
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        ACTION: ${{ inputs.action }}
+        STACK: ${{ inputs.stack }}
+        CLIENT: ${{ inputs.client }}
+        DOMAIN: ${{ inputs.domain }}
+        HUB: ${{ inputs.hub }}
+        DB: ${{ inputs.db }}
+        NETWORK: ${{ inputs.network || 'odoo_swarm' }}
+        PROJECT_DIR: ${{ inputs.project-dir || '/home/odoo/odoo' }}
+        BACKUP_DIR: ${{ inputs.backup-dir || '/home/odoo/backups' }}
+        FLEET_FILE: ${{ inputs.fleet-file }}
+        MONITOR_PASSWORD: ${{ inputs.password }}
+        FLEET_PASSWORD: ${{ inputs.fleet-password }}
+        TELEGRAM_BOT_TOKEN: ${{ inputs.telegram-bot-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
+        HEARTBEAT_URL: ${{ inputs.heartbeat-url }}
+      run: bash "$GITHUB_ACTION_PATH/observer.sh"

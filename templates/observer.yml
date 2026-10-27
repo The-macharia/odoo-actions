@@ -1,0 +1,36 @@
+name: Observer
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [deploy, down]
+        default: deploy
+
+permissions:
+  contents: read
+
+jobs:
+  observer:
+    runs-on: ${{ vars.RUNNER }}
+    environment: production
+    timeout-minutes: 20
+    steps:
+      # the hub reads its fleet file from the repo
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: The-macharia/odoo-actions/observer@v1
+        with:
+          action: ${{ inputs.action }}
+          stack: ${{ vars.STACK }}
+          client: ${{ github.event.repository.name }}
+          domain: ${{ vars.MONITOR_DOMAIN }}
+          hub: ${{ vars.MONITOR_HUB }}
+          db: ${{ vars.MAIN_DB }}
+          network: ${{ vars.NETWORK }}
+          project-dir: ${{ vars.PROJECT_DIR }}
+          backup-dir: ${{ vars.BACKUP_DIR }}
+          password: ${{ secrets.MONITOR_PASSWORD }}
+          fleet-password: ${{ secrets.MONITOR_FLEET_PASSWORD }}
+          telegram-bot-token: ${{ secrets.MONITOR_TELEGRAM_BOT_TOKEN }}
+          telegram-chat-id: ${{ vars.MONITOR_TELEGRAM_CHAT_ID }}
+          heartbeat-url: ${{ secrets.MONITOR_HEARTBEAT_URL }}

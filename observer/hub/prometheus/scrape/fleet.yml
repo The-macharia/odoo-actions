@@ -1,0 +1,31 @@
+# Targets are generated from the hub repo's fleet file by observer.sh.
+scrape_configs:
+  # a failed federation scrape is the heartbeat: up{job="fleet"} == 0
+  - job_name: fleet
+    honor_labels: true
+    scheme: https
+    metrics_path: /monitor/prometheus/federate
+    scrape_interval: 1m
+    params:
+      'match[]': ['{__name__=~"observer:.+|ALERTS"}']
+    basic_auth:
+      username: fleet
+      password_file: /etc/observer/fleet_password
+    file_sd_configs:
+      - files: [/etc/prometheus/fleet/federate.yml]
+
+  - job_name: fleet-odoo
+    metrics_path: /probe
+    scrape_interval: 1m
+    params:
+      module: [http_2xx]
+    file_sd_configs:
+      - files: [/etc/prometheus/fleet/probe.yml]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+        replacement: https://$1/web/health
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

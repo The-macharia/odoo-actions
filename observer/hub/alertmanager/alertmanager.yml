@@ -1,0 +1,40 @@
+route:
+  receiver: team
+  group_by: [client, alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [alertname = Watchdog]
+      receiver: __HEARTBEAT_RECEIVER__
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 1m
+
+# a critical mutes the warning of the same alert on the same server
+inhibit_rules:
+  - source_matchers: [severity = critical]
+    target_matchers: [severity = warning]
+    equal: [client, alertname]
+
+receivers:
+  - name: team
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/telegram_token
+        chat_id: __TELEGRAM_CHAT__
+        parse_mode: HTML
+        send_resolved: true
+        # HTML mode: annotations must not contain < or &, Telegram rejects the whole message
+        message: |-
+          {{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>{{ .CommonLabels.client }}</b> {{ .CommonLabels.alertname }}{{ if eq .Status "resolved" }} resolved{{ end }}
+          {{ range .Alerts }}
+          <b>{{ .Labels.severity }}</b> {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          <a href="{{ .Annotations.dashboard }}">dashboard</a>
+          {{ end }}
+  - name: heartbeat
+    webhook_configs:
+      - url_file: /etc/alertmanager/heartbeat_url
+        send_resolved: false
+  # takes the Watchdog while no MONITOR_HEARTBEAT_URL is set
+  - name: discard
