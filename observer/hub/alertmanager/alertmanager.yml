@@ -24,14 +24,16 @@ receivers:
         chat_id: __TELEGRAM_CHAT__
         parse_mode: HTML
         send_resolved: true
-        # HTML mode: annotations must not contain < or &, Telegram rejects the whole message
+        # HTML mode: annotations must not contain < or &, Telegram rejects the whole message.
+        # Telegram also refuses anything over 4096 characters, which 64 stuck sessions on gass reached,
+        # so only the first 8 alerts of a group are listed.
         message: |-
-          {{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>{{ .CommonLabels.client }}</b> {{ .CommonLabels.alertname }}{{ if eq .Status "resolved" }} resolved{{ end }}
-          {{ range .Alerts }}
-          <b>{{ .Labels.severity }}</b> {{ .Annotations.summary }}
-          {{ .Annotations.description }}
-          <a href="{{ .Annotations.dashboard }}">dashboard</a>
-          {{ end }}
+          {{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} <b>{{ .CommonLabels.client }}</b> {{ .CommonLabels.alertname }}{{ if gt (len .Alerts) 1 }} ×{{ len .Alerts }}{{ end }}{{ if eq .Status "resolved" }} resolved{{ end }}
+          {{ range $i, $a := .Alerts }}{{ if lt $i 8 }}
+          <b>{{ $a.Labels.severity }}</b> {{ $a.Annotations.summary }}{{ end }}{{ end }}{{ if gt (len .Alerts) 8 }}
+          …{{ end }}
+          {{ with .CommonAnnotations.description }}{{ . }}{{ else }}{{ (index .Alerts 0).Annotations.description }}{{ end }}
+          <a href="{{ with .CommonAnnotations.dashboard }}{{ . }}{{ else }}{{ (index .Alerts 0).Annotations.dashboard }}{{ end }}">dashboard</a>
   - name: heartbeat
     webhook_configs:
       - url_file: /etc/alertmanager/heartbeat_url

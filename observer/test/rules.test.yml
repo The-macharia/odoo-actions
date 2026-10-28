@@ -56,3 +56,41 @@ tests:
               summary: 92.39% of usable connections taken
               description: New connections will be refused soon. The holders table shows who holds them.
               dashboard: __URL__/d/pg-connections
+
+  # ir_cron sits on page 0 while stock_move keeps scanning; only the stalled one alerts, after 30 min
+  - interval: 30s
+    input_series:
+      - {series: 'pg_stat_progress_vacuum_heap_blks_scanned{datname="gass", relname="ir_cron"}', values: 0x80}
+      - {series: 'pg_stat_progress_vacuum_phase{datname="gass", relname="ir_cron", phase="scanning heap"}', values: 1x80}
+      - {series: 'pg_stat_progress_vacuum_heap_blks_scanned{datname="gass", relname="stock_move"}', values: 0+100x80}
+      - {series: 'pg_stat_progress_vacuum_phase{datname="gass", relname="stock_move", phase="scanning heap"}', values: 1x80}
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: PostgresVacuumStuck
+        exp_alerts: []
+      - eval_time: 31m
+        alertname: PostgresVacuumStuck
+        exp_alerts:
+          - exp_labels: {severity: critical, datname: gass, relname: ir_cron}
+            exp_annotations:
+              summary: Vacuum of ir_cron has scanned no page for 30 minutes
+              description: Queries on that table queue behind it and cannot be cancelled. If Postgres CPU is pegged it is looping, and only a Postgres restart frees it.
+              dashboard: __URL__/d/pg-live
+
+  # PG 16 checkpoints stop after 10 min; PG 17 keeps checkpointing every 5 min
+  - interval: 5m
+    input_series:
+      - {series: 'pg_stat_bgwriter_checkpoints_timed_total{instance="pg16"}', values: 0 1 2 2 2 2 2 2 2 2 2 2 2 2 2}
+      - {series: 'pg_stat_checkpointer_num_timed_total{instance="pg17"}', values: 0+1x14}
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: PostgresCheckpointStuck
+        exp_alerts: []
+      - eval_time: 60m
+        alertname: PostgresCheckpointStuck
+        exp_alerts:
+          - exp_labels: {severity: critical, instance: pg16}
+            exp_annotations:
+              summary: The checkpointer has not started a checkpoint for 45 minutes
+              description: The checkpointer waits on a page lock, so WAL piles up and a restart has more to replay. Look for a stuck vacuum or a session waiting on an LWLock.
+              dashboard: __URL__/d/pg-live

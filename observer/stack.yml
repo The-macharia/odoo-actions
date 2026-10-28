@@ -126,6 +126,7 @@ services:
       - --collector.stat_statements.include_query
       - --collector.stat_statements.query_length=200
       - --collector.stat_statements.limit=50
+      - --collector.stat_checkpointer
       - --no-collector.stat_activity
       - --no-collector.stat_user_tables
       - --no-collector.statio_user_tables
