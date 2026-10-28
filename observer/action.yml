@@ -40,22 +40,12 @@ inputs:
     description: Hub only; numeric id of the Telegram chat or group the bot posts to
   heartbeat-url:
     description: Hub only; dead-man ping URL (healthchecks.io) for the hub itself
-  observer-repo:
-    description: Repo holding deploy.sh and the stack; any fork that keeps its deploy interface
-    default: The-macharia/odoo-observer
-  observer-ref:
-    description: Tag, branch or commit of observer-repo
-    default: v1
+  observer:
+    description: <owner/repo or git URL>@<tag, branch or commit> holding deploy.sh; any fork that keeps its deploy interface
+    default: The-macharia/odoo-observer@v1
 runs:
   using: composite
   steps:
-    # `|| default` too, because a caller passing an unset repo variable sends '' rather than omitting it
-    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      with:
-        repository: ${{ inputs.observer-repo || 'The-macharia/odoo-observer' }}
-        ref: ${{ inputs.observer-ref || 'v1' }}
-        path: .odoo-observer
-        persist-credentials: false
     - shell: bash
       env:
         ACTION: ${{ inputs.action }}
@@ -73,4 +63,12 @@ runs:
         TELEGRAM_BOT_TOKEN: ${{ inputs.telegram-bot-token }}
         TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
         HEARTBEAT_URL: ${{ inputs.heartbeat-url }}
-      run: bash .odoo-observer/deploy.sh
+        OBSERVER: ${{ inputs.observer || 'The-macharia/odoo-observer@v1' }}
+      run: |
+        repo=${OBSERVER%@*} ref=${OBSERVER##*@}
+        [[ $OBSERVER == *@* && -n $ref ]] || { echo "::error::observer must be <repo>@<ref>, got '$OBSERVER'"; exit 1; }
+        [[ $repo == */* && $repo != *:* ]] && repo=https://github.com/$repo
+        rm -rf .odoo-observer && git init -q .odoo-observer
+        git -C .odoo-observer fetch -q --depth 1 "$repo" "$ref"
+        git -C .odoo-observer -c advice.detachedHead=false checkout -q FETCH_HEAD
+        bash .odoo-observer/deploy.sh

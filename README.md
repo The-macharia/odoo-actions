@@ -82,12 +82,15 @@ is a stub for migrating module repos between Odoo versions.
 
 ## Observer
 
-`observer/` is a thin wrapper. It checks out
+`observer/` is a thin wrapper. It fetches
 [The-macharia/odoo-observer](https://github.com/The-macharia/odoo-observer) and runs its `deploy.sh`.
 That repo holds the stack, dashboards, alert rules, setup steps and runbooks.
 
-- **The repo and version it fetches:** inputs `observer-repo` (default `The-macharia/odoo-observer`)
-  and `observer-ref` (default `v1`).
-- `templates/observer.yml` passes the repo variables `OBSERVER_REPO` and `OBSERVER_REF`, so a server
-  can switch or pin without a code change.
-- **Unset variables** fall back to the defaults.
+Which repo and version it fetches comes from one input:
+
+```
+observer: The-macharia/odoo-observer@v1
+```
+
+That's `<owner/repo or git URL>@<tag, branch or commit>`, written into each client's
+`.github/workflows/observer.yml`. Edit that line to switch repo or pin a version (`@v1.0.1`).

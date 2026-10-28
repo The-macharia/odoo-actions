@@ -34,6 +34,4 @@ jobs:
           telegram-bot-token: ${{ secrets.MONITOR_TELEGRAM_BOT_TOKEN }}
           telegram-chat-id: ${{ vars.MONITOR_TELEGRAM_CHAT_ID }}
           heartbeat-url: ${{ secrets.MONITOR_HEARTBEAT_URL }}
-          # unset: The-macharia/odoo-observer at v1; set them to switch or pin this server
-          observer-repo: ${{ vars.OBSERVER_REPO }}
-          observer-ref: ${{ vars.OBSERVER_REF }}
+          observer: The-macharia/odoo-observer@v1
