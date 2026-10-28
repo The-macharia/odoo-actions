@@ -15,7 +15,8 @@ jobs:
         env:
           DIR: ${{ vars.BACKUP_DIR || '/home/odoo/backups' }}
           DB: ${{ vars.MAIN_DB }}
-        run: echo "file=$(ls -t "$DIR/$DB".*.zip | head -1)" >> "$GITHUB_OUTPUT"
+        # the second path finds zips the next backup has not yet moved into the database's folder
+        run: echo "file=$(ls -t "$DIR/$DB/$DB".*.zip "$DIR/$DB".*.zip 2>/dev/null | head -1)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

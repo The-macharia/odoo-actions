@@ -31,7 +31,11 @@ runs:
         NETWORK: ${{ inputs.network }}
       run: |
         set -euo pipefail
-        mkdir -p "$BACKUP_DIR"
+        # one folder per database: several databases can share a server and its BACKUP_DIR
+        dir="$BACKUP_DIR/$DB"
+        mkdir -p "$dir"
+        # zips written before the per-database folders
+        find "$BACKUP_DIR" -maxdepth 1 -name "$DB.*.zip" -exec mv -n -t "$dir" {} +
         file="$DB.$(date +%F-%H%M%S).zip"
         name="$STACK-backup-$$"
         echo "file=$file" >> "$GITHUB_OUTPUT"
@@ -41,26 +45,30 @@ runs:
         # container is removed from here, not odoo-run; the job must sit in `wait`
         # for the trap to fire. A partial zip is dropped so backup-download never
         # serves it as the newest file.
-        trap 'docker rm -f "$name" >/dev/null 2>&1; [ -n "${ok:-}" ] || rm -f "$BACKUP_DIR/$file"' EXIT
+        trap 'docker rm -f "$name" >/dev/null 2>&1; [ -n "${ok:-}" ] || rm -f "$dir/$file"' EXIT
         trap 'exit 130' INT TERM
 
-        ODOO_RUN_ARGS="--name $name --user 0:0 --mount type=bind,src=$BACKUP_DIR,dst=/var/backups" \
+        ODOO_RUN_ARGS="--name $name --user 0:0 --mount type=bind,src=$dir,dst=/var/backups" \
             bash "$GITHUB_ACTION_PATH/../bin/odoo-run" "$STACK" \
             click-odoo-backupdb -c /etc/odoo/odoo.conf "$DB" "/var/backups/$file" &
         wait $!
 
         python3 -c 'import sys, zipfile; sys.exit(zipfile.ZipFile(sys.argv[1]).testzip() is not None)' \
-            "$BACKUP_DIR/$file"
+            "$dir/$file"
         ok=1
-        echo "size=$(du -h "$BACKUP_DIR/$file" | cut -f1)" >> "$GITHUB_OUTPUT"
+        echo "size=$(du -h "$dir/$file" | cut -f1)" >> "$GITHUB_OUTPUT"
         # read by the observer's node-exporter, which mounts only metrics/ and runs as nobody
         mkdir -p -m 755 "$BACKUP_DIR/metrics"
-        echo "odoo_backup_last_success_timestamp_seconds{db=\"$DB\"} $(date +%s)" > "$BACKUP_DIR/metrics/odoo_backup.prom.$$"
-        chmod 644 "$BACKUP_DIR/metrics/odoo_backup.prom.$$"
-        mv "$BACKUP_DIR/metrics/odoo_backup.prom.$$" "$BACKUP_DIR/metrics/odoo_backup.prom"
+        prom="$BACKUP_DIR/metrics/odoo_backup_$DB.prom"
+        echo "odoo_backup_last_success_timestamp_seconds{db=\"$DB\"} $(date +%s)" > "$prom.$$"
+        chmod 644 "$prom.$$"
+        mv "$prom.$$" "$prom"
+        # the single shared file of earlier versions would repeat a database's series, and node-exporter
+        # drops the whole folder on a duplicate
+        rm -f "$BACKUP_DIR/metrics/odoo_backup.prom"
 
-        find "$BACKUP_DIR" -name "$DB.*.zip" -mtime +"$KEEP_DAYS" -delete
-        ls -lh "$BACKUP_DIR"
+        find "$dir" -name "$DB.*.zip" -mtime +"$KEEP_DAYS" -delete
+        ls -lh "$dir"
 
     # A composite step still runs after the job is cancelled or times out (checked on GitHub);
     # both show here as outcome "cancelled". Success posts silently, failures with sound.
