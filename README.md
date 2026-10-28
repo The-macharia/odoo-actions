@@ -53,12 +53,18 @@ Environments `production` (branch `main` only) and `stage`, each with:
 | `COMPOSE_FILE` | `stage-compose.yml` | `docker-compose.yml` |
 | `PROJECT_DIR` | `/home/odoo/stage` | `/home/odoo/odoo` |
 | `BACKUP_DIR` | | `/home/odoo/backups` |
+| `TELEGRAM_CHAT_ID` | `-1001234567890` | unset: backups post no notices |
 
 Do not add required reviewers to `production`: scheduled backups and maintenance run in it and
 would wait for approval.
 
 Secrets: `DOCKER_USER`, `DOCKER_PAT` (see the table above for when they are needed), and
-`PRIVATE_TOKEN_PAT` with read access to private submodules when `SUBMODULES` is set.
+`PRIVATE_TOKEN_PAT` with read access to private submodules when `SUBMODULES` is set. `TELEGRAM_BOT_TOKEN`
+(a @BotFather bot in that chat) makes every backup post its result:
+- **done:** posted silently, with file, size and duration;
+- **failed**, or **stopped** (cancelled or timed out): posted with sound.
+
+An organization-level secret and variable cover every repo at once.
 
 The compose file joins the external network the deploy action creates:
 

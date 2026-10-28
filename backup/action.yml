@@ -14,10 +14,15 @@ inputs:
     default: '4'
   network:
     description: Overlay network the throwaway container joins (default odoo_swarm)
+  telegram-bot-token:
+    description: Optional; with telegram-chat-id, posts every run's result (done, failed, stopped) to Telegram
+  telegram-chat-id:
+    description: Numeric id of the Telegram chat or group (-100... for supergroups)
 runs:
   using: composite
   steps:
-    - shell: bash
+    - id: backup
+      shell: bash
       env:
         STACK: ${{ inputs.stack }}
         DB: ${{ inputs.db }}
@@ -29,6 +34,8 @@ runs:
         mkdir -p "$BACKUP_DIR"
         file="$DB.$(date +%F-%H%M%S).zip"
         name="$STACK-backup-$$"
+        echo "file=$file" >> "$GITHUB_OUTPUT"
+        echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
 
         # On cancel the runner signals only this shell and SIGKILLs the rest, so the
         # container is removed from here, not odoo-run; the job must sit in `wait`
@@ -45,6 +52,7 @@ runs:
         python3 -c 'import sys, zipfile; sys.exit(zipfile.ZipFile(sys.argv[1]).testzip() is not None)' \
             "$BACKUP_DIR/$file"
         ok=1
+        echo "size=$(du -h "$BACKUP_DIR/$file" | cut -f1)" >> "$GITHUB_OUTPUT"
         # read by the observer's node-exporter, which mounts only metrics/ and runs as nobody
         mkdir -p -m 755 "$BACKUP_DIR/metrics"
         echo "odoo_backup_last_success_timestamp_seconds{db=\"$DB\"} $(date +%s)" > "$BACKUP_DIR/metrics/odoo_backup.prom.$$"
@@ -53,3 +61,33 @@ runs:
 
         find "$BACKUP_DIR" -name "$DB.*.zip" -mtime +"$KEEP_DAYS" -delete
         ls -lh "$BACKUP_DIR"
+
+    # A composite step still runs after the job is cancelled or times out (checked on GitHub);
+    # both show here as outcome "cancelled". Success posts silently, failures with sound.
+    - if: always() && inputs.telegram-bot-token != '' && inputs.telegram-chat-id != ''
+      shell: bash
+      env:
+        OUTCOME: ${{ steps.backup.outcome }}
+        STARTED: ${{ steps.backup.outputs.started }}
+        FILE: ${{ steps.backup.outputs.file }}
+        SIZE: ${{ steps.backup.outputs.size }}
+        DB: ${{ inputs.db }}
+        TOKEN: ${{ inputs.telegram-bot-token }}
+        CHAT: ${{ inputs.telegram-chat-id }}
+      run: |
+        took=$(( $(date +%s) - ${STARTED:-$(date +%s)} ))
+        dur="$((took / 60))m $((took % 60))s"
+        client=${GITHUB_REPOSITORY#*/}
+        case $OUTCOME in
+          success)   head="✅ <b>$client</b> backup done" detail="$FILE, $SIZE, $dur" ;;
+          cancelled) head="⛔ <b>$client</b> backup stopped" detail="$DB, cancelled or timed out after $dur" ;;
+          *)         head="❌ <b>$client</b> backup failed" detail="$DB, after $dur" ;;
+        esac
+        text="$head
+        $detail
+        <a href=\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\">run log</a>"
+        resp=$(curl -sS -m 20 "https://api.telegram.org/bot$TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$CHAT" --data-urlencode "text=$text" -d parse_mode=HTML \
+            -d disable_notification=$([ "$OUTCOME" = success ] && echo true || echo false)) || true
+        # a lost notice must not fail a good backup
+        [[ $resp == *'"ok":true'* ]] || echo "::warning::Telegram did not take the backup notice: ${resp:-no response}"

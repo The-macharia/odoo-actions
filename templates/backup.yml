@@ -22,3 +22,5 @@ jobs:
           db: ${{ inputs.db || vars.MAIN_DB }}
           backup-dir: ${{ vars.BACKUP_DIR }}
           network: ${{ vars.NETWORK }}
+          telegram-bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram-chat-id: ${{ vars.TELEGRAM_CHAT_ID }}
