@@ -2,7 +2,7 @@ name: Observer stack
 description: Deploy the observer stack from The-macharia/odoo-observer (or a fork) next to an Odoo stack, served under /monitor (or as the hub).
 inputs:
   action:
-    description: deploy or down
+    description: deploy, restart, stop or down
     default: deploy
   stack:
     description: Swarm stack name of the Odoo app (its db service is <stack>_db)
@@ -14,8 +14,7 @@ inputs:
     description: Domain whose nginx serves /monitor; the hub domain on the hub
     required: true
   hub:
-    description: Hub domain that receives every server's alerts
-    required: true
+    description: Hub domain that receives every server's alerts; empty for a standalone server whose alerts go nowhere
   db:
     description: Odoo database the exporter and Grafana connect to (pg_stat_statements lives there)
     required: true

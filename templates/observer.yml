@@ -4,7 +4,7 @@ on:
     inputs:
       action:
         type: choice
-        options: [deploy, down]
+        options: [deploy, restart, stop, down]
         default: deploy
 
 permissions:
