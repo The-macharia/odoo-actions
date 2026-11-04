@@ -25,6 +25,7 @@ jobs:
           client: ${{ github.event.repository.name }}
           domain: ${{ vars.MONITOR_DOMAIN }}
           hub: ${{ vars.MONITOR_HUB }}
+          export: ${{ vars.MONITOR_EXPORT }}
           db: ${{ vars.MAIN_DB }}
           network: ${{ vars.NETWORK }}
           project-dir: ${{ vars.PROJECT_DIR }}

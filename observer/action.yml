@@ -15,6 +15,8 @@ inputs:
     required: true
   hub:
     description: Hub domain that receives every server's alerts; empty for a standalone server whose alerts go nowhere
+  export:
+    description: true publishes /monitor/prometheus and /monitor/loki behind the fleet password; empty is on with a hub, off standalone
   db:
     description: Odoo database the exporter and Grafana connect to (pg_stat_statements lives there)
     required: true
@@ -31,14 +33,13 @@ inputs:
     description: Grafana admin password
     required: true
   fleet-password:
-    description: Shared password between the hub and every server (basic auth user "fleet")
-    required: true
+    description: Shared password between the hub and every server (basic auth user "fleet"); needed with a hub or export
   telegram-bot-token:
-    description: Hub only; Telegram bot token (from @BotFather) that posts the alerts
+    description: Hub, or a standalone server that alerts; Telegram bot token (from @BotFather) that posts the alerts
   telegram-chat-id:
-    description: Hub only; numeric id of the Telegram chat or group the bot posts to
+    description: Hub, or a standalone server that alerts; numeric id of the Telegram chat or group the bot posts to
   heartbeat-url:
-    description: Hub only; dead-man ping URL (healthchecks.io) for the hub itself
+    description: Optional wherever alerts go to Telegram; dead-man ping URL (healthchecks.io) for that server's alerting
   observer:
     description: <owner/repo or git URL>@<tag, branch or commit> holding deploy.sh; any fork that keeps its deploy interface
     default: The-macharia/odoo-observer@v1
@@ -52,6 +53,7 @@ runs:
         CLIENT: ${{ inputs.client }}
         DOMAIN: ${{ inputs.domain }}
         HUB: ${{ inputs.hub }}
+        EXPORT: ${{ inputs.export }}
         DB: ${{ inputs.db }}
         NETWORK: ${{ inputs.network || 'odoo_swarm' }}
         PROJECT_DIR: ${{ inputs.project-dir || '/home/odoo/odoo' }}
